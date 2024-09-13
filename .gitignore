@@ -1,0 +1,6 @@
+obj
+core*
+*.swp
+*.swo
+*.out
+*.log
