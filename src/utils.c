@@ -23,6 +23,8 @@ int httpd_init(void)
 
         atexit(&httpd_exit);
 
+        signal(SIGPIPE, SIG_IGN);
+
         retval = RETSXS;
     } while(0);
 

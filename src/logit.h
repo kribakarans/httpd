@@ -34,6 +34,9 @@ extern FILE *logfp;
 			fclose(logfp); \
 	} while(0);
 
+#define logit_enter()  logit("Enter")
+#define logit_finish() logit("Finish")
+
 #define logit_retval() \
 	do { \
 		if (retval != RETSXS) \

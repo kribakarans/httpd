@@ -6,7 +6,6 @@ enum e_httpd_retval {
 	RETSXS =  0,
 };
 
-int httpd_init();
-int httpd_run();
+int httpd_run(const int portno);
 
 #endif

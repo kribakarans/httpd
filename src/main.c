@@ -2,6 +2,8 @@
 #include "logit.h"
 #include "utils.h"
 
+#define PORT 8888
+
 int main()
 {
     int retval = -1;
@@ -14,7 +16,7 @@ int main()
             break;
         }
 
-        retval = httpd_run();
+        retval = httpd_run(PORT);
         if (retval != RETSXS) {
             httpd_error("Failed to run server");
             retval = RETERR;
