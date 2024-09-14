@@ -1,12 +1,46 @@
+#include <sys/time.h>
+#include <arpa/inet.h>
+
 #include "httpd.h"
 #include "logit.h"
+#include "threads.h"
 
-#include <arpa/inet.h>
+
+#define timer_init() \
+	struct timeval start, end; \
+	gettimeofday(&start, NULL); /* Get start time */
+
+#define timer_stop() \
+	gettimeofday(&end, NULL); /* Get end time */ \
+	/* Calculate time difference in seconds and microseconds */ \
+	double elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+
+void httpd_handle_client_thread(void *arg)
+{
+	int *p_taskid = (int *)arg;
+	int taskid = *p_taskid;
+	int work_duration = rand() % 10 + 1;
+
+	timer_init();
+
+	httpd_printf("[Task: %d] Task is running. Simulating work for %d seconds...", taskid, work_duration);
+
+	sleep(work_duration);  // Simulate workload
+
+	timer_stop();
+
+	httpd_printf("[Task: %d] Task completed: Time taken: %.2f seconds", taskid, elapsed_time);
+
+	*p_taskid = taskid + 1;
+
+	return;
+}
 
 int httpd_run(const int portno, const char *logfile)
 {
 	int opt = 1;
 	int retval = -1;
+	int nthread = 0;
 	int server_socket = -1;
 	int client_socket = -1;
 	struct sockaddr_in server_addr = {0};
@@ -55,7 +89,14 @@ int httpd_run(const int portno, const char *logfile)
 		logit("listening on port %d", portno);
 		httpd_printf("Server running on %d\n", portno);
 
-		while (1) {
+		httpd_threads = httpd_threadpool_init(/* NThreads */ 5, /* QueuseSize */ 10);
+		if (httpd_threads == NULL) {
+			httpd_error("httpd_threadpool_init() failed");
+			retval = HTTPD_RETERR;
+			break;
+		}
+
+		while (true) {
 			client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
 			if (client_socket < 0) {
 				httpd_error("accept() failed: %s", strerror(errno));
@@ -63,7 +104,14 @@ int httpd_run(const int portno, const char *logfile)
 			}
 
 			httpd_printf("New client connected: %d", client_socket);
+
+			httpd_printf("[Task: %d] Adding task to the pool", nthread);
+			if (httpd_threadpool_add_task(httpd_threads, httpd_handle_client_thread, &nthread) != 0) {
+				logit("[Error] Failed to add task %d to the pool.", nthread);
+			}
 		}
+
+		httpd_threadpool_clean(httpd_threads);
 	} while(0);
 
 	close(server_socket);

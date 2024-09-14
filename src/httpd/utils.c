@@ -1,6 +1,8 @@
 #include "httpd.h"
 #include "logit.h"
 
+#include <signal.h>
+
 FILE *httpd_logfp = NULL;
 
 static void httpd_exit(void)

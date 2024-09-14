@@ -8,7 +8,7 @@ TARGET   :=  $(ELFNAME).out
 # Build options
 CC       ?=  gcc
 CFLAGS   := -g -MMD -Wall -Wno-unused-function -Wextra
-CPPFLAGS :=
+CPPFLAGS := -DTERMUX
 INCLUDE  :=
 LDLIBS   += -pthread
 
@@ -22,7 +22,7 @@ BOLD     :=  $(shell tput bold)
 NC       :=  $(shell tput sgr0)
 
 # Source files
-SRCS :=  $(SRCDIR)/main.c $(SRCDIR)/httpd/httpd.c $(SRCDIR)/httpd/utils.c
+SRCS :=  $(SRCDIR)/main.c $(SRCDIR)/httpd/httpd.c $(SRCDIR)/httpd/threads.c $(SRCDIR)/httpd/utils.c
 
 # Build object files
 OBJS  = $(SRCS:%.c=$(OBJDIR)/%.o)
