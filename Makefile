@@ -7,17 +7,27 @@ TARGET   :=  $(ELFNAME).out
 
 # Build options
 CC       ?=  gcc
-CFLAGS   := -g -MMD -Wall -Wno-unused-function -Wextra
-CPPFLAGS := -DTERMUX
+CFLAGS   := -g3 -O3 -MMD -Wall -Wno-unused-function -Wextra
+CPPFLAGS :=
 INCLUDE  :=
-LDLIBS   += -pthread
+LDFLAGS  := -Wl,-Bsymbolic-functions -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -Wl,-z,separate-code
+LDLIBS   := -pthread
+
+ifeq ($(PLATFORM), TERMUX)
+  PREFIX   ?=  /usr/local
+  CPPFLAGS += -DTERMUX
+else
+  PREFIX   ?=  $(HOME)/.local
+  CPPFLAGS +=
+endif
 
 SRCDIR   :=  src
 OBJDIR   :=  obj
 DISTDIR  :=  dist
-PREFIX   ?=  /usr/local
 
+CP       :=  cp
 RM       :=  rm -f
+INSTALL  ?=  install
 BOLD     :=  $(shell tput bold)
 NC       :=  $(shell tput sgr0)
 

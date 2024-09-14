@@ -9,7 +9,7 @@ static void httpd_exit(void)
 {
 	logit("%s", "Bye");
 
-	logit_close();
+	httpd_logit_close();
 
 	return;
 }

@@ -7,6 +7,11 @@
 #include <unistd.h>
 #include <string.h>
 
+#define RESET_COLOR "\033[0m"
+#define RED_COLOR   "\033[1;31m"
+
+#define DEBUGIT(x) do { if (debug == true) { x; } } while (0)
+
 extern FILE *httpd_logfp;
 
 #define httpd_logit_init(file) \
@@ -23,7 +28,7 @@ extern FILE *httpd_logfp;
 		} \
 	} while(0);
 
-#define logit_close() \
+#define httpd_logit_close() \
 	do { \
 		if (httpd_logfp != NULL) \
 			fclose(httpd_logfp); \
@@ -40,20 +45,27 @@ extern FILE *httpd_logfp;
 
 #define logit(...) \
 	do { \
-		if (httpd_logfp == NULL) httpd_logfp = stderr; \
-		fprintf(httpd_logfp, "DEBUG %d %17s:%-4d %25s() :: ", \
-		        getpid(), __FILE__, __LINE__, __func__); \
+		if (httpd_logfp == NULL) \
+			httpd_logfp = stdout; \
+		fprintf(httpd_logfp, "DEBUG %d %17s:%-4d %25s() :: ", getpid(), __FILE__, __LINE__, __func__); \
 		fprintf(httpd_logfp, __VA_ARGS__); \
 		fprintf(httpd_logfp, "\n"); \
 		fflush(httpd_logfp); \
 	} while(0);
 
-#define httpd_error(...) \
+/* Print logs to console and log file */
+#define logit_error(...) \
 	do { \
-		fprintf(stderr, "ERROR %d %17s:%-4d %25s() :: ", \
-		        getpid(), __FILE__, __LINE__, __func__); \
-		fprintf(stderr, __VA_ARGS__); \
-		fprintf(stderr, "\n"); \
+		if (httpd_logfp == NULL) { \
+			httpd_logfp = stderr; \
+		} else { \
+			fprintf(stderr, "ERROR %d %17s:%-4d %30s() :: ",  getpid(), __FILE__, __LINE__, __func__); \
+			fprintf(stderr, __VA_ARGS__); \
+			fprintf(stderr, "\n"); \
+		} \
+		fprintf(httpd_logfp, "ERROR %d %17s:%-4d %30s() :: ", getpid(), __FILE__, __LINE__, __func__); \
+		fprintf(httpd_logfp, __VA_ARGS__); \
+		fprintf(httpd_logfp, "\n"); \
 	} while(0);
 
 #define httpd_printf(...) \
@@ -61,5 +73,14 @@ extern FILE *httpd_logfp;
 		fprintf(stdout, __VA_ARGS__); \
 		fprintf(stdout, "\n"); \
 	} while(0);
+
+#define httpd_print_error(...)  \
+	do { \
+		if (httpd_logfp != NULL) \
+			logit_error(__VA_ARGS__); \
+		fprintf(stderr, RED_COLOR); \
+		fprintf(stderr, __VA_ARGS__); \
+		fprintf(stderr, RESET_COLOR "\n"); \
+	} while (0)
 
 #endif
