@@ -1,13 +1,13 @@
 # GNU Makefile to build HTTPd:
 
 PACKAGE  :=  HTTPd
-VERSION  :=  0.1
+VERSION  :=  0.1a
 ELFNAME  :=  httpd
 TARGET   :=  $(ELFNAME).out
 
 # Build options
 CC       ?=  gcc
-CFLAGS   := -g -MMD -Wall -Wno-unused-function #-Werror #-Wextra
+CFLAGS   := -g -MMD -Wall -Wno-unused-function -Wextra
 CPPFLAGS :=
 INCLUDE  :=
 LDLIBS   += -pthread
@@ -22,7 +22,7 @@ BOLD     :=  $(shell tput bold)
 NC       :=  $(shell tput sgr0)
 
 # Source files
-SRCS :=  $(SRCDIR)/main.c $(SRCDIR)/httpd.c $(SRCDIR)/utils.c
+SRCS :=  $(SRCDIR)/main.c $(SRCDIR)/httpd/httpd.c $(SRCDIR)/httpd/utils.c
 
 # Build object files
 OBJS  = $(SRCS:%.c=$(OBJDIR)/%.o)

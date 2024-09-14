@@ -2,7 +2,7 @@
 #define __HTTPD_CONFIG_H__
 
 #define PROGRAM_NAME    "HTTPd"
-#define PROGRAM_VERSION "1.0"
+#define PROGRAM_VERSION "0.1a"
 
 #define HTTPDROOT ".httpd"
 
@@ -12,6 +12,6 @@
 	#define PREFIX "/data/data/com.termux/files/usr/tmp/"
 #endif
 
-#define LOGFILE "httpd.log"
+#define LOGFILE PREFIX "httpd.log"
 
 #endif

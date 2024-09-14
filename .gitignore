@@ -4,3 +4,4 @@ core*
 *.swo
 *.out
 *.log
+__ktags

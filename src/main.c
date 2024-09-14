@@ -1,30 +1,18 @@
-#include "httpd.h"
-#include "logit.h"
-#include "utils.h"
+#include <stdio.h>
 
-#define PORT 8888
+#include "httpd/httpd.h"
 
 int main()
 {
     int retval = -1;
+    int portno = 8888;
 
-    do {
-        retval = httpd_init();
-        if (retval != RETSXS) {
-            httpd_error("Failed to init server");
-            retval = RETERR;
-            break;
-        }
+    retval = httpd_run(portno, "trace.log");
+    if (retval != HTTPD_RETSXS) {
+        printf("Oops! failed to run server.");
+    }
 
-        retval = httpd_run(PORT);
-        if (retval != RETSXS) {
-            httpd_error("Failed to run server");
-            retval = RETERR;
-            break;
-        }
-    } while(0);
-
-    logit_retval();
+    printf("retval=%d", retval);
 
     return retval;
 }

@@ -6,32 +6,26 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "config.h"
+extern FILE *httpd_logfp;
 
-extern FILE *logfp;
-
-#if 1
-#define logit_init() \
+#define httpd_logit_init(file) \
 	do { \
-        logfp = stdout; \
-	} while(0);
-#else
-#define logit_init() \
-	do { \
-        logfp = stdout; \
-		/* logfp = fopen(LOGFILE, "w+"); \ */ \
-		if (logfp == NULL) { \
-			fprintf(stderr, "ERROR: failed to init logger: fopen() failed for %s (%s)\n", \
-			                                                   LOGFILE, strerror(errno)); \
-			abort(); \
+		if (file == NULL) { \
+			httpd_logfp = stdout; \
+		} else { \
+			httpd_logfp = fopen(file, "w+"); \
+			if (httpd_logfp == NULL) { \
+				fprintf(stderr, "ERROR: failed to init logger: fopen() failed for %s (%s)\n", \
+				        file, strerror(errno)); \
+				abort(); \
+			} \
 		} \
 	} while(0);
-#endif
 
 #define logit_close() \
 	do { \
-		if (logfp != NULL) \
-			fclose(logfp); \
+		if (httpd_logfp != NULL) \
+			fclose(httpd_logfp); \
 	} while(0);
 
 #define logit_enter()  logit("Enter")
@@ -39,16 +33,18 @@ extern FILE *logfp;
 
 #define logit_retval() \
 	do { \
-		if (retval != RETSXS) \
+		if (retval != HTTPD_RETSXS) \
 			logit("retval: %d", retval); \
 	} while(0);
 
 #define logit(...) \
 	do { \
-		fprintf(logfp, "DEBUG %d %17s:%-4d %25s() :: ", \
+		if (httpd_logfp == NULL) httpd_logfp = stderr; \
+		fprintf(httpd_logfp, "DEBUG %d %17s:%-4d %25s() :: ", \
 		        getpid(), __FILE__, __LINE__, __func__); \
-		fprintf(logfp, __VA_ARGS__); \
-		fprintf(logfp, "\n"); \
+		fprintf(httpd_logfp, __VA_ARGS__); \
+		fprintf(httpd_logfp, "\n"); \
+		fflush(httpd_logfp); \
 	} while(0);
 
 #define httpd_error(...) \
