@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
 
@@ -14,23 +15,30 @@
 	/* Calculate time difference in seconds and microseconds */ \
 	double elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 
-void httpd_handle_client_thread(void *arg)
+typedef struct thread_data_st {
+	int index;
+	int sockfd;
+} thread_data_t;
+
+void httpd_handle_client_thread(void *data)
 {
-	int *p_taskid = (int *)arg;
-	int taskid = *p_taskid;
-	int work_duration = rand() % 10 + 1;
+	int load = rand() % 10 + 1;
+	thread_data_t *td_client = (thread_data_t*)data;
+
+	assert(td_client != NULL);
+
+	httpd_printf("[Task: %d] Task is running: socket=%d. Work load %d seconds ...",
+	             td_client->index, td_client->sockfd, load);
 
 	timer_init();
 
-	httpd_printf("[Task: %d] Task is running. Simulating work for %d seconds...", taskid, work_duration);
-
-	sleep(work_duration);  // Simulate workload
+	sleep(load);  /* Simulate workload */
 
 	timer_stop();
 
-	httpd_printf("[Task: %d] Task completed: Time taken: %.2f seconds", taskid, elapsed_time);
+	httpd_printf("[Task: %d] Task completed: Time taken: %.2f seconds ======", td_client->index, elapsed_time);
 
-	*p_taskid = taskid + 1;
+	free(td_client);
 
 	return;
 }
@@ -39,10 +47,11 @@ int httpd_run(const int portno, const char *logfile)
 {
 	int opt = 1;
 	int retval = -1;
-	int nthread = 0;
+	int index = 0;
 	int server_socket = -1;
 	int client_socket = -1;
 	char host[INET_ADDRSTRLEN] = {0};
+	thread_data_t *thread_data = NULL;
 	struct sockaddr_in server_addr = {0};
 	struct sockaddr_in client_addr = {0};
 	socklen_t client_addr_len = sizeof(client_addr);
@@ -99,6 +108,7 @@ int httpd_run(const int portno, const char *logfile)
 		}
 
 		while (true) {
+#if 1
 			client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_len);
 			if (client_socket < 0) {
 				httpd_print_error("HTTPd: Failed to accept client: %s", strerror(errno));
@@ -106,11 +116,25 @@ int httpd_run(const int portno, const char *logfile)
 			}
 
 			httpd_printf("New client connected: %d", client_socket);
-
-			httpd_printf("[Task: %d] Adding task to the pool", nthread);
-			if (httpd_threadpool_add_task(httpd_threads, httpd_handle_client_thread, &nthread) != 0) {
-				logit("[Error] Failed to add task %d to the pool.", nthread);
+#else
+			if (index >= 10) {
+				pause();
 			}
+#endif
+
+			thread_data = (thread_data_t*)malloc(sizeof(thread_data));
+			assert(thread_data != NULL);
+
+			thread_data->index  = index;
+			thread_data->sockfd = index;
+
+			httpd_printf("[Task: %d] Adding task to the pool", index);
+
+			if (httpd_threadpool_add_task(httpd_threads, httpd_handle_client_thread, (void *)thread_data) != 0) {
+				logit("[Error] Failed to add task %d to the pool.", index);
+			}
+
+			index++;
 		}
 
 		httpd_threadpool_clean(httpd_threads);
