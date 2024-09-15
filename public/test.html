@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asynchronous Backend Test</title>
+    <style>
+        body,
+        html {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .test-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #f9f9f9;
+            font-family: monospace;
+            width: 99%;
+        }
+
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        .success {
+            font-weight: bold;
+            color: green;
+        }
+
+        .error {
+            font-weight: bold;
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Asynchronous Backend Test</h1>
+
+        <button id="getButton">Send GET Request</button>
+        <button id="postButton">Send POST Request</button>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        const outputDiv = document.getElementById('output');
+
+        document.getElementById('getButton').addEventListener('click', () => {
+            createBox('GET');
+        });
+
+        document.getElementById('postButton').addEventListener('click', () => {
+            createBox('POST');
+        });
+
+        function createBox(requestType) {
+            // Create a new test box
+            const box = document.createElement('div');
+            box.className = 'test-box';
+            const initialText = `${requestType} request sent. Waiting for the response ....`;
+            box.textContent = initialText;
+            outputDiv.appendChild(box);
+
+            // Log the send action
+            console.log(`${requestType} request sent.`);
+
+            // Send the appropriate request
+            if (requestType === 'GET') {
+                fetchGet(box);
+            } else if (requestType === 'POST') {
+                fetchPost(box);
+            }
+        }
+
+        function fetchGet(box) {
+            fetch('http://localhost:8888/get')
+                .then(response => response.text())  // Expecting a plain text response
+                .then(data => {
+                    // Log the receive action
+                    console.log(`GET Response received: ${data}`);
+
+                    box.textContent = `GET Response received: ${data}`;
+                    box.className = 'test-box success';
+                })
+                .catch(error => {
+                    console.log(`GET request failed: ${error}`);
+                    box.textContent = `GET request failed: ${error}`;
+                    box.className = 'test-box error';
+                });
+        }
+
+        function fetchPost(box) {
+            fetch('http://localhost:8888/post', {
+                method: 'POST',
+                body: 'Testing POST request',
+                headers: {
+                    'Content-Type': 'text/plain',
+                }
+            })
+                .then(response => response.text())  // Expecting a plain text response
+                .then(data => {
+                    // Log the receive action
+                    console.log(`POST Response received: ${data}`);
+
+                    box.textContent = `POST Response received: ${data}`;
+                    box.className = 'test-box success';
+                })
+                .catch(error => {
+                    console.log(`POST request failed: ${error}`);
+                    box.textContent = `POST request failed: ${error}`;
+                    box.className = 'test-box error';
+                });
+        }
+    </script>
+
+</body>
+</html>
