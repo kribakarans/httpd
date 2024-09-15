@@ -4,10 +4,12 @@
 
 #include "httpd.h"
 #include "logit.h"
+#include "utils.h"
 #include "threads.h"
 
 //#define ENABLE_THREAD_POOL
 
+#define MAX_ROUTES 100
 #define MAX_CLIENTS 10
 #define BUFFER_SIZE 4096
 #define PUBLIC_FOLDER "public"
@@ -24,13 +26,53 @@
 #define httpd_perror(fmt, ...) \
 	logit_error(fmt ": %s", ##__VA_ARGS__, strerror(errno))
 
+size_t route_count = 0;
+http_route_t route_table[MAX_ROUTES] = {0};
+
+int httpd_route_set_handler(const char *route, http_handler_t handler, void *arg)
+{
+	logit("%s", route);
+
+	if (route_count >= MAX_ROUTES) {
+		fprintf(stderr, "Error: Route limit reached (%d)\n", MAX_ROUTES);
+		return -1;
+	}
+
+	if (!route || !handler) {
+		fprintf(stderr, "Error: Invalid route or handler\n");
+		return -1;
+	}
+
+	// Add route to the static route table
+	strncpy(route_table[route_count].route, route, sizeof(route_table[route_count].route) - 1);
+	route_table[route_count].route[sizeof(route_table[route_count].route) - 1] = '\0';
+	route_table[route_count].handler = handler;
+	route_table[route_count].arg = arg;
+	route_count++;
+
+	return 0;
+}
+
+void handle_request(const char *route)
+{
+	for (size_t i = 0; i < route_count; i++) {
+		if (strcmp(route, route_table[i].route) == 0) {
+			printf("Handling route: %s\n", route);
+			route_table[i].handler(route_table[i].arg);  // Call the handler with its argument
+			return;
+		}
+	}
+
+	printf("404 Not Found: %s\n", route);
+}
+
 typedef struct thread_data_st {
 	int index;
 	int sockfd;
 } thread_data_t;
 
-const char *http_status_ok = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
-const char *http_status_not_found = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\n404: File not found";
+const char *http_header_200 = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
+const char *http_header_404 = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\n404: File not found";
 
 static ssize_t httpd_send_status(const int sockfd, const char *response)
 {
@@ -61,11 +103,11 @@ static void httpd_serve_file(const int sockfd, const char *file)
 
 		fp = fopen(relpath, "r");
 		if (fp == NULL) {
-			httpd_send_status(sockfd, http_status_not_found);
+			httpd_send_status(sockfd, http_header_404);
 			break;
 		}
 
-		nbytes = httpd_send_status(sockfd, http_status_ok);
+		nbytes = httpd_send_status(sockfd, http_header_200);
 		if (nbytes < 0) {
 			httpd_perror("write() failed");
 			fclose(fp);
@@ -104,13 +146,22 @@ static void httpd_handle_client(const int sockfd)
 		}
 
 		buffer[nbytes] = '\0';
-		DEBUGIT(httpd_printf("HTTP Request received:"));
-		DEBUGIT(httpd_printf("%s\n-------------------\n", buffer));
+		logit("HTTP Request received:");
+		//logit("%s", buffer);
 
 		sscanf(buffer, "%s %s", method, path);
+
+		/* By default use builtin index page    */
+		/* Might override by client application */
 		if (strcmp(path, "/") == 0) {
 			httpd_serve_file(sockfd, "/index.html");
 			break;
+		}
+
+		logit("%s %s", method, path);
+
+		if (strcmp(method, "GET") == 0) {
+			handle_request(path);
 		}
 	} while(0);
 
