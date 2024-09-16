@@ -59,11 +59,11 @@ extern FILE *httpd_logfp;
 		if (httpd_logfp == NULL) { \
 			httpd_logfp = stderr; \
 		} else { \
-			fprintf(stderr, "ERROR %d %17s:%-4d %30s() :: ",  getpid(), __FILE__, __LINE__, __func__); \
+			fprintf(stderr, "ERROR %d %17s:%-4d %25s() :: ",  getpid(), __FILE__, __LINE__, __func__); \
 			fprintf(stderr, __VA_ARGS__); \
 			fprintf(stderr, "\n"); \
 		} \
-		fprintf(httpd_logfp, "ERROR %d %17s:%-4d %30s() :: ", getpid(), __FILE__, __LINE__, __func__); \
+		fprintf(httpd_logfp, "ERROR %d %17s:%-4d %25s() :: ", getpid(), __FILE__, __LINE__, __func__); \
 		fprintf(httpd_logfp, __VA_ARGS__); \
 		fprintf(httpd_logfp, "\n"); \
 	} while(0);

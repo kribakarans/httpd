@@ -92,7 +92,7 @@
         }
 
         function fetchGet(box) {
-            fetch('http://localhost:8888/get')
+            fetch('http://localhost:8888/testget')
                 .then(response => response.text())  // Expecting a plain text response
                 .then(data => {
                     // Log the receive action
@@ -109,7 +109,7 @@
         }
 
         function fetchPost(box) {
-            fetch('http://localhost:8888/post', {
+            fetch('http://localhost:8888/testpost', {
                 method: 'POST',
                 body: 'Testing POST request',
                 headers: {

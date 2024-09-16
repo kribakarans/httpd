@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdarg.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
 
@@ -26,20 +27,28 @@
 #define httpd_perror(fmt, ...) \
 	logit_error(fmt ": %s", ##__VA_ARGS__, strerror(errno))
 
+typedef struct thread_data_st {
+	int index;
+	int sockfd;
+} thread_data_t;
+
 size_t route_count = 0;
 http_route_t route_table[MAX_ROUTES] = {0};
+
+const char *http_header_200 = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
+const char *http_header_404 = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\n404: File not found";
 
 int httpd_route_set_handler(const char *route, http_handler_t handler, void *arg)
 {
 	logit("%s", route);
 
 	if (route_count >= MAX_ROUTES) {
-		fprintf(stderr, "Error: Route limit reached (%d)\n", MAX_ROUTES);
+		httpd_print_error("Route limit reached (%d)", MAX_ROUTES);
 		return -1;
 	}
 
 	if (!route || !handler) {
-		fprintf(stderr, "Error: Invalid route or handler\n");
+		httpd_print_error("Invalid route or handler");
 		return -1;
 	}
 
@@ -48,31 +57,32 @@ int httpd_route_set_handler(const char *route, http_handler_t handler, void *arg
 	route_table[route_count].route[sizeof(route_table[route_count].route) - 1] = '\0';
 	route_table[route_count].handler = handler;
 	route_table[route_count].arg = arg;
+
 	route_count++;
 
 	return 0;
 }
 
-void handle_request(const char *route)
+void handle_request(const int sockfd, const char *route)
 {
+	logit_enter();
+
+	logit("socket=%d route=%s", sockfd, route);
+
 	for (size_t i = 0; i < route_count; i++) {
 		if (strcmp(route, route_table[i].route) == 0) {
-			printf("Handling route: %s\n", route);
-			route_table[i].handler(route_table[i].arg);  // Call the handler with its argument
+			httpd_printf("Handling route: %s", route);
+			route_table[i].handler(sockfd, route_table[i].arg);  // Call the handler with its argument
+			logit_finish();
 			return;
 		}
 	}
 
-	printf("404 Not Found: %s\n", route);
+	httpd_print_error("404 Not Found: %s", route);
+	logit_finish();
+
+	return;
 }
-
-typedef struct thread_data_st {
-	int index;
-	int sockfd;
-} thread_data_t;
-
-const char *http_header_200 = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
-const char *http_header_404 = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\n404: File not found";
 
 static ssize_t httpd_send_status(const int sockfd, const char *response)
 {
@@ -88,7 +98,32 @@ static ssize_t httpd_send_status(const int sockfd, const char *response)
 	return nbytes;
 }
 
-static void httpd_serve_file(const int sockfd, const char *file)
+ssize_t httpd_send(const int sockfd, const char *format, ...)
+{
+	va_list args;
+	ssize_t nbytes = -1;
+	char response[BUFFER_SIZE];
+
+	assert(format != NULL);
+
+	va_start(args, format);
+	vsnprintf(response, sizeof(response), format, args);
+	va_end(args);
+
+	/* Send the HTTP status first */
+	if ((nbytes = httpd_send_status(sockfd, http_header_200)) < 0) {
+		httpd_perror("write() failed");
+	}
+
+	/* Write the formatted response to the socket */
+	if ((nbytes = write(sockfd, response, strlen(response))) < 0) {
+		httpd_perror("write() failed");
+	}
+
+	return nbytes;
+}
+
+void httpd_serve_file(const int sockfd, const char *file)
 {
 	FILE *fp = NULL;
 	ssize_t nbytes = -1;
@@ -131,7 +166,6 @@ static void httpd_serve_file(const int sockfd, const char *file)
 
 static void httpd_handle_client(const int sockfd)
 {
-	bool debug = false;
 	ssize_t nbytes = -1;
 	char method[8], path[512];
 	char buffer[BUFFER_SIZE] = {0};
@@ -155,13 +189,16 @@ static void httpd_handle_client(const int sockfd)
 		/* Might override by client application */
 		if (strcmp(path, "/") == 0) {
 			httpd_serve_file(sockfd, "/index.html");
-			break;
+			//break;
 		}
 
 		logit("%s %s", method, path);
 
 		if (strcmp(method, "GET") == 0) {
-			handle_request(path);
+			handle_request(sockfd, path);
+		} else if (strcmp(method, "POST") == 0) {
+			logit("Need to implement");
+			// TODO
 		}
 	} while(0);
 
