@@ -63,33 +63,13 @@ int httpd_route_set_handler(const char *route, http_handler_t handler, void *arg
 	return 0;
 }
 
-void handle_request(const int sockfd, const char *route)
-{
-	logit_enter();
-
-	logit("socket=%d route=%s", sockfd, route);
-
-	for (size_t i = 0; i < route_count; i++) {
-		if (strcmp(route, route_table[i].route) == 0) {
-			httpd_printf("Handling route: %s", route);
-			route_table[i].handler(sockfd, route_table[i].arg);  // Call the handler with its argument
-			logit_finish();
-			return;
-		}
-	}
-
-	httpd_print_error("404 Not Found: %s", route);
-	logit_finish();
-
-	return;
-}
-
 static ssize_t httpd_send_status(const int sockfd, const char *response)
 {
 	ssize_t nbytes = -1;
 
 	assert(response != NULL);
 
+	//DEBUGIT(logit("%s", response));
 	nbytes = write(sockfd, response, strlen(response));
 	if (nbytes < 0) {
 		httpd_perror("write() failed");
@@ -164,6 +144,33 @@ void httpd_serve_file(const int sockfd, const char *file)
 	return;
 }
 
+void handle_request(const int sockfd, const char *route)
+{
+	logit_enter();
+
+	logit("socket=%d route=%s", sockfd, route);
+
+	for (size_t i = 0; i < route_count; i++) {
+		if (strcmp(route, route_table[i].route) == 0) {
+			httpd_printf("Handling route: %s", route);
+			route_table[i].handler(sockfd, route_table[i].arg);  // Call the handler with its argument
+			logit_finish();
+			return;
+		}
+	}
+
+	/* Try to serve builtin index page if no root set */
+	if (strcmp(route, "/") == 0) {
+		httpd_serve_file(sockfd, "/index.html");
+	} else {
+		httpd_send_status(sockfd, http_header_404);
+	}
+
+	logit_finish();
+
+	return;
+}
+
 static void httpd_handle_client(const int sockfd)
 {
 	ssize_t nbytes = -1;
@@ -184,13 +191,6 @@ static void httpd_handle_client(const int sockfd)
 		//logit("%s", buffer);
 
 		sscanf(buffer, "%s %s", method, path);
-
-		/* By default use builtin index page    */
-		/* Might override by client application */
-		if (strcmp(path, "/") == 0) {
-			httpd_serve_file(sockfd, "/index.html");
-			//break;
-		}
 
 		logit("%s %s", method, path);
 

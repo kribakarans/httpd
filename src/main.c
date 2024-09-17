@@ -63,7 +63,7 @@ int main()
 	int portno = 8888;
 
 	/* Register client request handlers */
-	//httpd_route_set_handler("/", index_handler, "Welcome to the home page!");
+	httpd_route_set_handler("/", test_root_handler, "Welcome to the test page!");
 	//httpd_route_set_handler("/about", about_handler, "This is the about page.");
 	//httpd_route_set_handler("/help", help_handler, "Help is available here.");
 	httpd_route_set_handler("/test", test_root_handler, "Welcome to the test page!");
