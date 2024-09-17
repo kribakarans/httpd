@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <stdarg.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
@@ -36,7 +35,8 @@ size_t route_count = 0;
 http_route_t route_table[MAX_ROUTES] = {0};
 
 const char *http_header_200 = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
-const char *http_header_404 = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\n404: File not found";
+const char *http_header_404 = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<h1>404 Page Not Found</h1>";
+const char *http_header_200F = "HTTP/1.1 200 OK\r\nServer: klab-httpd\r\nContent-Type: %s\r\nContent-Length: %lu\r\n\r\n";
 
 int httpd_route_set_handler(const char *route, http_handler_t handler, void *arg)
 {
@@ -63,13 +63,40 @@ int httpd_route_set_handler(const char *route, http_handler_t handler, void *arg
 	return 0;
 }
 
+static ssize_t httpd_send_header(const int sockfd, const char *res_fmt, const char *file)
+{
+	bool debug = false;
+	int retval = -1;
+	ssize_t nbytes = -1;
+	char *response = NULL;
+
+	assert(res_fmt != NULL);
+
+	logit("%s", file);
+
+	retval = asprintf(&response, res_fmt, httpd_get_mimtype(file), httpd_get_file_content_length(file));
+	assert(retval > 0);
+
+	DEBUGIT(logit("%s", response));
+
+	nbytes = write(sockfd, response, strlen(response));
+	if (nbytes < 0) {
+		httpd_perror("write() failed");
+	}
+
+	free(response);
+
+	return nbytes;
+}
+
 static ssize_t httpd_send_status(const int sockfd, const char *response)
 {
+	bool debug = false;
 	ssize_t nbytes = -1;
 
 	assert(response != NULL);
 
-	//DEBUGIT(logit("%s", response));
+	DEBUGIT(logit("%s", response));
 	nbytes = write(sockfd, response, strlen(response));
 	if (nbytes < 0) {
 		httpd_perror("write() failed");
@@ -78,22 +105,64 @@ static ssize_t httpd_send_status(const int sockfd, const char *response)
 	return nbytes;
 }
 
-ssize_t httpd_send(const int sockfd, const char *format, ...)
+
+/* Function to send formatted HTTP headers to the socket */
+int httpd_send_header_v2(int sockfd, const char *fmt, ...)
+{
+	int fmtlen;
+	va_list args;
+	char buffer[BUFFER_SIZE] = {0};
+
+	va_start(args, fmt);
+	fmtlen = vsnprintf(buffer, sizeof(buffer), fmt, args);
+	va_end(args);
+
+	if (fmtlen < 0) {
+		return -1;
+	}
+
+	if (write(sockfd, buffer, fmtlen) == -1) {
+		return -1;
+	}
+
+	return fmtlen;
+}
+
+ssize_t httpd_send_data(const int sockfd, const char *mimetype, const char *data, const size_t datalen)
+{
+	ssize_t nbytes = -1;
+
+	logit("%s", data);
+
+	/* Send the HTTP status first */
+	nbytes = httpd_send_header_v2(sockfd, "HTTP/1.1 200 OK\r\nServer: klab-httpd\r\nContent-Type: %s\r\nContent-Length: %lu\r\n\r\n", mimetype, datalen);
+
+	/* Write the formatted response to the socket */
+	if ((nbytes = write(sockfd, data, datalen)) < 0) {
+		httpd_perror("write() failed");
+	}
+
+	return nbytes;
+}
+
+ssize_t httpd_send(const int sockfd, const char *fmt, ...)
 {
 	va_list args;
 	ssize_t nbytes = -1;
 	char response[BUFFER_SIZE];
 
-	assert(format != NULL);
+	assert(fmt != NULL);
 
-	va_start(args, format);
-	vsnprintf(response, sizeof(response), format, args);
+	va_start(args, fmt);
+	vsnprintf(response, sizeof(response), fmt, args);
 	va_end(args);
 
 	/* Send the HTTP status first */
 	if ((nbytes = httpd_send_status(sockfd, http_header_200)) < 0) {
 		httpd_perror("write() failed");
 	}
+
+	logit("%s", response);
 
 	/* Write the formatted response to the socket */
 	if ((nbytes = write(sockfd, response, strlen(response))) < 0) {
@@ -103,26 +172,24 @@ ssize_t httpd_send(const int sockfd, const char *format, ...)
 	return nbytes;
 }
 
-void httpd_serve_file(const int sockfd, const char *file)
+void httpd_serve_file(const int sockfd, const char *route)
 {
 	FILE *fp = NULL;
 	ssize_t nbytes = -1;
-	char relpath[1024];
+	char file[1024];
 	char buffer[BUFFER_SIZE] = {0};
 
 	do {
-		logit_enter();
+		snprintf(file, sizeof(file), "%s%s", PUBLIC_FOLDER, route);
+		logit("file=%s", file);
 
-		snprintf(relpath, sizeof(relpath), "%s%s", PUBLIC_FOLDER, file);
-		logit("file=%s", relpath);
-
-		fp = fopen(relpath, "r");
+		fp = fopen(file, "r");
 		if (fp == NULL) {
 			httpd_send_status(sockfd, http_header_404);
 			break;
 		}
 
-		nbytes = httpd_send_status(sockfd, http_header_200);
+		nbytes = httpd_send_header(sockfd, http_header_200F, file);
 		if (nbytes < 0) {
 			httpd_perror("write() failed");
 			fclose(fp);
@@ -139,16 +206,15 @@ void httpd_serve_file(const int sockfd, const char *file)
 		fclose(fp);
 	} while(0);
 
-	logit_finish();
-
 	return;
 }
 
-void handle_request(const int sockfd, const char *route)
+void handle_get_request(const int sockfd, const char *route)
 {
-	logit_enter();
+	char file[1024] = {0};
 
-	logit("socket=%d route=%s", sockfd, route);
+	logit("socket=%d", sockfd);
+	logit("route=%s", route);
 
 	for (size_t i = 0; i < route_count; i++) {
 		if (strcmp(route, route_table[i].route) == 0) {
@@ -162,43 +228,85 @@ void handle_request(const int sockfd, const char *route)
 	/* Try to serve builtin index page if no root set */
 	if (strcmp(route, "/") == 0) {
 		httpd_serve_file(sockfd, "/index.html");
-	} else {
-		httpd_send_status(sockfd, http_header_404);
 	}
 
-	logit_finish();
+	snprintf(file, sizeof(file), "%s%s", PUBLIC_FOLDER, route);
+	if (access(file, F_OK) < 0) {
+		httpd_send_status(sockfd, http_header_404);
+	} else {
+		httpd_serve_file(sockfd, route);
+	}
+
+	return;
+}
+
+void handle_post_request(const int sockfd, const char *route, const char *body)
+{
+	char file[1024] = {0};
+
+	logit("socket=%d", sockfd);
+	logit("route=%s", route);
+	logit("body=%s", body);
+
+	for (size_t i = 0; i < route_count; i++) {
+		if (strcmp(route, route_table[i].route) == 0) {
+			httpd_printf("Handling route: %s", route);
+			route_table[i].handler(sockfd, route_table[i].arg);  // Call the handler with its argument
+			logit_finish();
+			return;
+		}
+	}
+
+	/* Try to serve builtin index page if no root set */
+	if (strcmp(route, "/") == 0) {
+		httpd_serve_file(sockfd, "/index.html");
+	}
+
+	snprintf(file, sizeof(file), "%s%s", PUBLIC_FOLDER, route);
+	if (access(file, F_OK) < 0) {
+		httpd_send_status(sockfd, http_header_404);
+	} else {
+		httpd_serve_file(sockfd, route);
+	}
 
 	return;
 }
 
 static void httpd_handle_client(const int sockfd)
 {
+	bool debug = false;
+	char *body = NULL;
+	char *t_url = NULL;
 	ssize_t nbytes = -1;
-	char method[8], path[512];
-	char buffer[BUFFER_SIZE] = {0};
+	char method[8], url[512];
+	char header[BUFFER_SIZE] = {0};
 
 	do {
 		logit_enter();
 
-		nbytes = read(sockfd, buffer, BUFFER_SIZE - 1);
+		nbytes = read(sockfd, header, BUFFER_SIZE - 1);
 		if (nbytes < 0) {
 			httpd_perror("failed to read socket data");
 			break;
 		}
 
-		buffer[nbytes] = '\0';
+		header[nbytes] = '\0';
 		logit("HTTP Request received:");
-		//logit("%s", buffer);
+		DEBUGIT(logit("%s", header));
 
-		sscanf(buffer, "%s %s", method, path);
+		sscanf(header, "%s %s", method, url);
 
-		logit("%s %s", method, path);
+		logit("%s %s", method, url);
 
 		if (strcmp(method, "GET") == 0) {
-			handle_request(sockfd, path);
+			t_url = strtok(url, "?"); /* Trim the url from query (trim /entry.html from /entry.html?domain=google.com) */
+			handle_get_request(sockfd, t_url);
 		} else if (strcmp(method, "POST") == 0) {
-			logit("Need to implement");
-			// TODO
+			logit("%s", header);
+			body = httpd_read_body(header);
+			assert(body != NULL);
+			handle_post_request(sockfd, url, body);
+			free(body);
 		}
 	} while(0);
 
