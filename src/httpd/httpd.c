@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdarg.h>
 #include <sys/time.h>
 #include <arpa/inet.h>

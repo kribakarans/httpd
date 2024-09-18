@@ -1,58 +1,45 @@
-#include <stdio.h>
 #include <time.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 
-#include "logit.h"
 #include "config.h"
 #include "httpd/httpd.h"
 
-#if 0
-void index_handler(void *data) {
-	printf("Index Page: %s\n", (char *)data);
+char *kpass_exec(const char *cmd);
+
+void kpass_domain_handler(const int sockfd, void *data)
+{
+	char *output = kpass_exec("kpass -j -f 'NAME=google.com'");
+
+	assert(output != NULL);
+
+	httpd_send_data(sockfd, "text/json", output, strlen(output));
+
+	free(output);
+
+	return;
 }
 
-void about_handler(void *data) {
-	printf("About Page: %s\n", (char *)data);
+void kpass_list_handler(const int sockfd, void *data)
+{
+	char *output = kpass_exec("kpass -j -n -L");
+
+	assert(output != NULL);
+
+	httpd_send_data(sockfd, "text/json", output, strlen(output));
+
+	free(output);
+
+	return;
 }
 
-void help_handler(void *data) {
-	printf("Help Page: %s\n", (char *)data);
-}
-#endif
-
-void test_root_handler(const int sockfd, void *data)
+void index_handler(const int sockfd, void *data)
 {
 	printf("socket=%d\n", sockfd);
 	printf("Test Page: %s\n", (char *)data);
-	httpd_serve_file(sockfd, "/test.html");
-
-	return;
-}
-
-void test_async_get_handler(const int sockfd, void *data)
-{
-	char time_str[20] = {0};
-	time_t now = time(NULL);
-	struct tm *tm_info = localtime(&now);
-
-	strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", tm_info);
-
-	printf("socket=%d\n", sockfd);
-	printf("Data: %s\n", (char *)data);
-
-	printf("Sending GET response...\n");
-	sleep(3);
-	httpd_send(sockfd, "[%s] Helloworld!", time_str);
-	printf("Done.\n");
-
-	return;
-}
-
-void test_async_post_handler(const int sockfd, void *data)
-{
-	printf("socket=%d\n", sockfd);
-	printf("Data: %s\n", (char *)data);
+	httpd_serve_file(sockfd, "/index.html");
 
 	return;
 }
@@ -63,12 +50,9 @@ int main()
 	int portno = 8888;
 
 	/* Register client request handlers */
-	httpd_route_set_handler("/", test_root_handler, "Welcome to the test page!");
-	//httpd_route_set_handler("/about", about_handler, "This is the about page.");
-	//httpd_route_set_handler("/help", help_handler, "Help is available here.");
-	httpd_route_set_handler("/test", test_root_handler, "Welcome to the test page!");
-	httpd_route_set_handler("/testget",  test_async_get_handler,  "Test async get");
-	httpd_route_set_handler("/testpost", test_async_post_handler, "Test async post");
+	httpd_route_set_handler("/", index_handler, "Home page");
+	httpd_route_set_handler("/list", kpass_list_handler, "Kpass List");
+	httpd_route_set_handler("/domain", kpass_domain_handler, "Kpass Domain");
 
 	/* Run web-server */
 	retval = httpd_run(portno, NULL);
@@ -79,6 +63,48 @@ int main()
 	printf("retval=%d\n", retval);
 
 	return retval;
+}
+
+char *kpass_exec(const char *cmd)
+{
+	FILE *fp = NULL;
+	char *buffer = NULL;
+	size_t temp_size = 0;
+	char temp[1024] = {0};
+	size_t total_size = 0;
+	char *new_buffer = NULL;
+
+	assert(cmd != NULL);
+
+	fp = popen(cmd, "r");
+	if (fp == NULL) {
+		perror("popen failed");
+		return NULL;
+	}
+
+	while (fgets(temp, sizeof(temp), fp) != NULL) {
+		temp_size = strlen(temp);
+		// Reallocate buffer to fit the new chunk
+		new_buffer = realloc(buffer, total_size + temp_size + 1);
+		if (new_buffer == NULL) {
+			perror("realloc failed");
+			free(buffer);
+			pclose(fp);
+			return NULL;
+		}
+
+		buffer = new_buffer;
+		memcpy(buffer + total_size, temp, temp_size);
+		total_size += temp_size;
+		buffer[total_size] = '\0';
+	}
+
+	if (pclose(fp) < 0) {
+		perror("pclose failed");
+		return NULL;
+	}
+
+	return buffer;
 }
 
 /* EOF */

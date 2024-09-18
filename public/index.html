@@ -1,90 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Homepage</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-            color: #333;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-        }
-        .box-tile {
-            background-color: #fff;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            padding: 40px;
-            text-align: center;
-            max-width: 600px;
-            width: 100%;
-        }
-        header {
-            background-color: #222;
-            color: #fff;
-            padding: 10px 0;
-        }
-        header h1 {
-            font-size: 36px;
-            margin: 0;
-        }
-        header p {
-            font-size: 18px;
-            margin-top: 10px;
-        }
-        .content {
-            padding: 40px 0;
-        }
-        .content h2 {
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        .content p {
-            font-size: 18px;
-            line-height: 1.6;
-            margin-bottom: 30px;
-        }
-        .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: #fff;
-            border-radius: 5px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: background-color 0.3s ease;
-        }
-        .btn:hover {
-            background-color: #0056b3;
-        }
-        footer {
-            background-color: #222;
-            color: #fff;
-            padding: 20px 0;
-        }
-        footer p {
-            margin: 0;
-        }
-    </style>
+    <title>Kpass</title>
+    <link rel="stylesheet" href="styles/index.css">
 </head>
+
 <body>
-    <div class="box-tile">
-        <header>
-            <h1>Helloworld!</h1>
-        </header>
-        <div class="container content">
-            <h2>About Us</h2>
-            <p>Webserver written by Kirubakaran Shanmugam.</p>
+    <div class="container">
+        <div class="banner">
+            <h1>Klab Password Manager</h1>
+
+            <div class="search">
+                <input type="text" id="search-box" placeholder="Search passwords">
+            </div>
+
+            <div class="status-bar" id="statusBar">
+                <p id="statusMessage"></p>
+            </div>
         </div>
-        <footer>
-            <p>&copy; 2024 Website. All rights reserved.</p>
-        </footer>
+
+        <div id="card-container"></div>
     </div>
+
+    <script src="scripts/index.js"></script>
+
+    <script>
+        // Attach event listener to the search input
+        document.getElementById('search-box').addEventListener('input', function (event) {
+            const query = event.target.value.trim(); // Get the current search query
+            if (query.length > 0) {
+                kpass_print("");
+                if (!kpass_grep_entry(query)) {
+                    document.getElementById('card-container').innerHTML = '';
+                }
+            } else {
+                /* If query is empty */
+                kpass_list_domain();
+            }
+        });
+
+        kpass_list_domain();
+    </script>
 </body>
+
 </html>

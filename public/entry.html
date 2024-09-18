@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kpass</title>
+    <link rel="stylesheet" href="styles/entry.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="banner">
+            <h1>Klab Password Manager</h1>
+
+            <div class="domain">
+                <h2 id="domain-name"></h2>
+            </div>
+
+            <div class="status-bar" id="statusBar">
+                <p id="statusMessage"></p>
+            </div>
+        </div>
+
+        <div id="card-container"></div>
+    </div>
+
+    <script src="scripts/entry.js"></script>
+
+    <script>
+        const localData = localStorage.getItem('serverResponse');
+        const domain = getParameterByName('domain');
+
+        if (domain) {
+            document.getElementById('domain-name').textContent = `${domain}`;
+        }
+
+        if (localData) {
+            try {
+                const entries = JSON.parse(localData);
+                kpass_add_list(entries);
+            } catch (error) {
+                kpass_error(`Error parsing stored response: ${error}`);
+            }
+        }
+    </script>
+</body>
+
+</html>

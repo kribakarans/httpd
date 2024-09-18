@@ -1,0 +1,111 @@
+/* Styles for entry.html */
+
+:root {
+    --main-bg-color: black;
+    --main-text-color: lightgray;
+    --card-bg-color: #2c2c2e;
+    --accent-color: #5f6368;
+    --button-hover-color: #828282;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    color: var(--main-text-color);
+    font-family: Verdana, sans-serif;
+    background-color: var(--main-bg-color);
+}
+
+.container {
+    width: 100%;
+    padding: 20px;
+    max-width: 768px;
+    box-sizing: border-box;
+}
+
+.banner {
+    position: sticky;
+    /* Stick the header to the top */
+    top: 0;
+    /* Ensure the header stays on top of other content */
+    z-index: 1000;
+    padding-top: 5px;
+    background-color: var(--main-bg-color);
+}
+
+.card {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    background-color: var(--card-bg-color);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.url {
+    display: block;
+    font-size: 15px;
+    text-decoration: none;
+    word-wrap: break-word;
+    color: var(--accent-color);
+}
+
+.misc {
+    display: block;
+    font-size: 10px;
+    text-decoration: none;
+    word-wrap: break-word;
+    color: var(--accent-color);
+}
+
+.view-button {
+    border: none;
+    outline: none;
+    cursor: pointer;
+    background: transparent;
+}
+
+.view-button svg {
+    width: 24px;
+    height: 24px;
+    fill: var(--accent-color);
+    transition: fill 0.2s ease;
+}
+
+.view-button:hover svg {
+    fill: var(--button-hover-color);
+}
+
+.label {
+    font-size: 40px;
+    margin-bottom: 5px;
+}
+
+.username {
+    display: block;
+    font-size: 20px;
+    font-weight: bold;
+    word-wrap: break-word;
+}
+
+.password-container {
+    display: flex;
+    align-items: center;
+}
+
+.password {
+    margin: 0;
+    flex-grow: 1;
+    font-size: 15px;
+    font-family: monospace;
+}
+
+#statusMessage {
+    margin: 10;
+    padding: 0;
+    color: orange;
+    font-size: 15px;
+}
+
+/* EOF */
