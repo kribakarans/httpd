@@ -9,6 +9,13 @@
 
 char *kpass_exec(const char *cmd);
 
+void kpass_entry_handler(const int sockfd, void *data)
+{
+	printf("KPASS ENTRY HANDLER CALLED%d\n", *(int*)data);
+
+	return;
+}
+
 void kpass_domain_handler(const int sockfd, void *data)
 {
 	char *output = kpass_exec("kpass -j -f 'NAME=google.com'");
@@ -53,6 +60,7 @@ int main()
 	httpd_route_set_handler("/", index_handler, "Home page");
 	httpd_route_set_handler("/list", kpass_list_handler, "Kpass List");
 	httpd_route_set_handler("/domain", kpass_domain_handler, "Kpass Domain");
+	httpd_route_set_handler("/entry/:id", kpass_entry_handler, "Kpass Entry");
 
 	/* Run web-server */
 	retval = httpd_run(portno, NULL);

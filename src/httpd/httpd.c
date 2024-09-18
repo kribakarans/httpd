@@ -33,8 +33,8 @@ typedef struct thread_data_st {
 	int sockfd;
 } thread_data_t;
 
-size_t route_count = 0;
-http_route_t route_table[MAX_ROUTES] = {0};
+static size_t route_count = 0;
+static http_route_t route_table[MAX_ROUTES] = {0};
 
 const char *http_header_200 = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
 const char *http_header_404 = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<h1>404 Page Not Found</h1>";
@@ -211,15 +211,94 @@ void httpd_serve_file(const int sockfd, const char *route)
 	return;
 }
 
+/* Return base path of given route */
+char *httpd_route_basename(const char *route)
+{
+	char *basename = NULL;
+	size_t base_length = 0;
+	const char *last_slash = NULL;
+
+	do {
+		last_slash = strrchr(route, '/');
+		if (last_slash == NULL) {
+			basename = strdup(route); /* If no '/' is found at end, return the whole string */
+			break;
+		}
+
+		base_length = last_slash - route;
+		basename = malloc(base_length + 1);
+
+		assert(basename != NULL);
+
+		strncpy(basename, route, base_length);
+		basename[base_length] = '\0';
+
+		if (strlen(basename) == 0) {
+			free(basename);
+			/* If the processed path is empty, return the original route */
+			/* Dont send the empty string */
+			basename = strdup(route);
+			break;
+		}
+	} while(0);
+
+	//logit("%s -> %s", route, basename);
+
+	return basename;
+}
+
 void handle_get_request(const int sockfd, const char *route)
 {
+	bool debug = false;
 	char file[1024] = {0};
+	char  entry_id[100] = {0};
+	char    *route_basename = NULL;
+	char *rt_route_basename = NULL;
 
-	logit("socket=%d", sockfd);
-	logit("route=%s", route);
+	DEBUGIT(logit("socket=%d", sockfd));
+	DEBUGIT(logit("route=%s", route));
+
+	route_basename = httpd_route_basename(route); /* Received route */
+	assert(route_basename != NULL);
 
 	for (size_t i = 0; i < route_count; i++) {
-		if (strcmp(route, route_table[i].route) == 0) {
+		rt_route_basename =  httpd_route_basename(route_table[i].route);
+		assert(rt_route_basename != NULL);
+
+		DEBUGIT(logit("Lookup route: '%s' == '%s'", route, route_table[i].route));
+		DEBUGIT(logit("Lookup base : '%s' == '%s'", route_basename, rt_route_basename));
+
+		/* Skip if client route and route_table route basename not matched */
+		if (strcmp(route_basename, rt_route_basename) != 0) {
+			continue;
+		}
+
+		if (strstr(route_table[i].route, ":id") != NULL) {
+			// Handle dynamic route
+			//char *pattern_start = strstr(route_table[i].route, ":id");
+			size_t pattern_length = strlen(route_table[i].route);
+			size_t route_length = strlen(route);
+
+			if (route_length < pattern_length) {
+				// Extract the dynamic part (e.g., entry_id)
+				size_t id_length = route_length - (pattern_length - 3); // 3 for ":id"
+				strncpy(entry_id, route + (pattern_length - 3), id_length);
+				entry_id[id_length] = '\0';
+				logit("entry_id=%s", entry_id);
+
+				// Construct a dynamic route
+				char dynamic_route[256] = {0};
+				snprintf(dynamic_route, sizeof(dynamic_route), "/entry/%s", entry_id);
+				logit("dynamic_route=%s", dynamic_route);
+
+				if (strcmp(route, dynamic_route) == 0) {
+					httpd_printf("Handling dynamic route: %s with id: %s", route, entry_id);
+					route_table[i].handler(sockfd, &entry_id); // Call the handler with its argument
+					logit_finish();
+					return;
+				}
+			}
+		} else if (strcmp(route, route_table[i].route) == 0) {
 			httpd_printf("Handling route: %s", route);
 			route_table[i].handler(sockfd, route_table[i].arg);  // Call the handler with its argument
 			logit_finish();

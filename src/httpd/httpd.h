@@ -19,8 +19,6 @@ typedef struct {
 	void *arg;
 } http_route_t;
 
-extern http_route_t route_table[];
-
 int httpd_init(const char *logfile);
 int httpd_run(const int portno, const char *logfile);
 
